@@ -56,9 +56,29 @@ for mem in memory
 							break
 						end if
 					end for
+				end if
 				
-					results.push(typeof(result) + " [" + access + "] " + mem + " " + value)
-				end if				
+				results.push(typeof(result) + " [" + access + "] " + mem + " " + value)
+			else if typeof(result) == "computer" then
+				access = "guest"
+				
+				if result.File("/root").has_permission("w") then
+					access = "root"
+				else
+					home = result.File("/home")
+					
+					users = home.get_folders
+					
+					for user in users
+						userDir = result.File("/home/" + user.name)
+						if userDir.has_permission("w") then
+							access = user.name
+							break
+						end if
+					end for
+				end if
+			
+				results.push(typeof(result) + " [" + access + "@" + result.local_ip + "] " + mem + " " + value)
 			else
 				results.push(typeof(result) + " [] " + mem + " " + value)
 			end if
