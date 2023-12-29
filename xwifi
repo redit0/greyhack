@@ -1,0 +1,45 @@
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then
+	cryptools = include_lib(current_path + "/crypto.so")
+end if
+if not cryptools then exit("Error: Missing crypto library")
+
+airmonResult = airmon(cryptools, "start", "wlan0")
+
+if typeof(airmonResult) == "string" then
+	exit("There was an error while switching monitoring mode: " + airmonResult)
+else
+	print("Monitoring mode switched successfully.")
+end if
+
+networks = wifi_networks(host_computer(get_shell), "wlan0")
+
+results = []
+
+for network in networks
+	parsed = network.split(" ")
+	
+	bssid = parsed[0]
+	pwr = parsed[1][:-1].to_int
+	essid = parsed[2]
+	acks = 300000 / pwr
+	
+	aireplayResult = aireplay(cryptools, bssid, essid, acks)
+	
+	if typeof(aireplayResult) == "string" then
+		print(aireplayResult)
+		continue
+	end if
+
+	results.push(aircrack(cryptools, current_path + "file.cap"))	
+end for
+
+if results.len > 0 then
+	for line in results
+		print(line)
+		
+		exit("Program Finished.")
+	end for
+else
+	exit("Program Failed.")
+end if
