@@ -1,0 +1,79 @@
+metaxploit = include_lib("/lib/metaxploit.so")
+if not metaxploit then
+    metaxploit = include_lib(current_path + "/metaxploit.so")
+end if
+if not metaxploit then exit("Error: Can't find metaxploit library in the /lib path or the current folder")
+
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then
+	cryptools = include_lib(current_path + "/crypto.so")
+end if
+if not cryptools then exit("Error: Can't find crypto.so library in the /lib path or the current folder")
+
+lib = user_input("Which library would you like to attack?\n" +
+"1. /lib/net.so\n" +
+"2. /lib/init.so\n" +
+"3. /lib/kernel_module.so\n" +
+"4. /lib/aptclient.so\n" +
+"5. /lib/crypto.so\n" +
+"6. /lib/metaxploit.so\n" + "> ")
+
+libChoice = null
+
+if lib == "1" then libChoice = "/lib/net.so"
+if lib == "2" then libChoice = "/lib/init.so"
+if lib == "3" then libChoice = "/lib/kernel_module.so"
+if lib == "4" then libChoice = "/lib/aptclient.so"
+if lib == "5" then libChoice = "/lib/crypto.so"
+if lib == "6" then libChoice = "/lib/metaxploit.so"
+
+if not libChoice then exit("Invalid entry.")
+
+metaLib = metaxploit.load(libChoice)
+if not metaLib then exit("Can't find " + libChoice)
+
+memory = metaxploit.scan(metaLib)
+
+for mem in memory
+	address = metaxploit.scan_address(metaLib, mem).split("Unsafe check: ")
+	
+	for add in address
+		if add == address[0] then continue
+		
+		value = add[add.indexOf("<b>")+3:add.indexOf("</b>")]
+		value = value.replace("\n", "")
+		
+		result = metaLib.overflow(mem, value)
+		
+		file = null
+		
+		if typeof(result) != "file" and typeof(result) != "shell" and typeof(result) != "computer" then continue
+		if typeof(result) == "file" then file = result
+		if typeof(result) == "shell" then file = result.host_computer.File("/etc/passwd")
+		if typeof(result) == "computer" then file = result.File("/etc/passwd")
+		
+		if not file then continue
+		if not file.has_permission("r") then continue
+		if file.is_binary then continue
+		
+		cont = file.get_content
+		if not cont then continue
+		
+		pass = cont.split("\n")
+		if pass.len == 0 then continue
+		
+		print("Credentials: ")
+		
+		for pwd in pass
+			userPass = pwd.split(":")
+			
+			if userPass.len != 2 then continue
+			password = cryptools.decipher(userPass[1])
+			print(userPass[0] + " : " + password)
+		end for
+	
+		exit("Program Finished")
+	end for	
+end for
+
+exit("Exploit Failed")
