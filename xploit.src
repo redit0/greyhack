@@ -1,0 +1,81 @@
+if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: "+program_path.split("/")[-1]+" [ip_address] [port]</b>")
+
+metaxploit = include_lib(current_path + "/metaxploit.so")
+if not metaxploit then
+	metaxploit = include_lib("/lib/metaxploit.so")
+end if
+if not metaxploit then exit("Error: Can't find metaxploit library in the /lib path or the current folder")
+
+address = params[0]
+port = params[1].to_int
+
+net_session = metaxploit.net_use(address, port)
+if not net_session then exit("Error: can't connect to net session")
+
+metaLib = net_session.dump_lib
+
+memory = metaxploit.scan(metaLib)
+
+results = []
+
+for mem in memory
+	address = metaxploit.scan_address(metaLib, mem).split("Unsafe check: ")[1:]
+	
+	for add in address		
+		value = add[add.indexOf("<b>")+3:add.indexOf("</b>")]
+		
+		result = metaLib.overflow(mem, value)
+		
+		if not result then continue
+		
+		if typeof(result) == "file" then
+			if result.is_folder then
+				results.push("Folder [" + result.path + "] " + mem + " " + value)
+			else if result.is_binary then
+				results.push("Binary [" + result.path + "] " + mem + " " + value)
+			else
+				results.push("File [" + result.path + "] " + mem + " " + value)
+			end if
+		else
+			if typeof(result) == "number" then continue
+			
+			if typeof(result) == "shell" then
+				access = "guest"
+				
+				if result.host_computer.File("/root").has_permission("w") then
+					access = "root"
+				else
+					home = result.host_computer.File("/home")
+					
+					users = home.get_folders
+					
+					for user in users
+						userDir = result.host_computer.File("/home/" + user.name)
+						if userDir.has_permission("w") then
+							access = user.name
+							break
+						end if
+					end for
+				
+					results.push(typeof(result) + " [" + access + "] " + mem + " " + value)
+				end if				
+			else
+				results.push(typeof(result) + " [] " + mem + " " + value)
+			end if
+		end if
+	end for	
+end for
+
+if results.len > 0 then
+	results.sort()
+	print("Results:")
+	temp = "Type Path Memory Value"
+	for res in results
+		temp = temp + "\n" + res
+	end for
+
+	print(format_columns(temp))
+	exit("Program Finished")
+else
+	exit("Exploit Failed")
+end if
