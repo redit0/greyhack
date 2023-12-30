@@ -1,0 +1,2 @@
+metaxploit = include_lib(current_path + "/metaxploit.so")
+get_custom_object.lib = metaxploit.load(params[0])
