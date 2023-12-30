@@ -31,15 +31,35 @@ for network in networks
 		continue
 	end if
 
-	results.push(aircrack(cryptools, current_path + "file.cap"))	
+	pwd = aircrack(cryptools, current_path + "/file.cap")
+
+	results.push(pwr + " " + essid + " " + pwd)
 end for
 
 if results.len > 0 then
+	temp = "Strength Network Password"
+	
 	for line in results
-		print(line)
-		
-		exit("Program Finished.")
+		temp = temp + char(10) + line
 	end for
+
+	outputFile = "wifi.txt"
+		
+	computer = host_computer(get_shell)
+		
+	createResult = touch(computer, current_path, outputFile)
+		
+	if typeof(createResult == "string") then
+		print(createResult)
+	end if
+
+	file = computer.File(current_path + "/" + outputFile)
+	
+	if file then file.set_content(format_columns(temp))
+	
+	print(format_columns(temp))
+	
+	exit("Program Finished.")
 else
 	exit("Program Failed.")
 end if
