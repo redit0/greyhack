@@ -1,0 +1,354 @@
+getRemoteVulns = function(ip, ports, router, targetLocalAddress = null)
+	if not ip or not ports or not router then return "Invalid Argument(s)"
+	if not is_valid_ip(ip) then return "Invalid address."
+	if targetLocalAddress and not is_valid_ip(targetLocalAddress) then return "Invalid targetLocalAddress"
+	
+	if router != "true" then router = null
+
+	vulns = [] // List<Map>
+	
+	for port in ports
+		net_session = metaxploit.net_use(ip, port)
+
+		if not net_session then
+			print("Could not establish net_session!")
+			continue
+		end if
+		
+		metaLib = net_session.dump_lib
+		
+		memory = metaxploit.scan(metaLib)
+		
+		for mem in memory
+			address = metaxploit.scan_address(metaLib, mem).split("Unsafe check:")[1:]
+			
+			for add in address
+				value = add[add.indexOf("<b>")+3:add.indexOf("</b>")]
+				
+				if router and targetLocalAddress then
+					result = metaLib.overflow(mem, value, targetLocalAddress)
+				else
+					result = metaLib.overflow(mem, value)
+				end if
+				
+				if result == null or typeof(result) == "string" then continue
+				
+				if typeof(result) == "file" then
+					resultMap = {"port":port, "type":"file", "path":result.path, "mem":mem, "value":value}
+					
+					if result.is_folder then
+						resultMap["type"] = "folder"
+					else if result.is_binary then
+						resultMap["type"] = "binary"
+					end if
+					
+					sort = port + resultMap["type"] + result.path
+					
+					resultMap["sort"] = sort
+					
+					vulns.push(resultMap)
+				end if
+			
+				if typeof(result) == "number" then
+					if router and port == 0 then
+						resultMap = {"port":port, "type":"firewall", "mem":mem, "value":value}
+					else
+						resultMap = {"port":port, "type":"password", "mem":mem, "value":value}
+					end if
+				
+					sort = port + resultMap["type"]
+					
+					resultMap["sort"] = sort
+					
+					vulns.push(resultMap)
+				end if
+			
+				if typeof(result) == "shell" then
+					resultMap = {"port":port, "type":"shell", "mem":mem, "value":value}
+					
+					access = "guest"
+				
+					if result.host_computer.File("/root").has_permission("w") then
+						access = "root"
+					else
+						home = result.host_computer.File("/home")
+
+						users = home.get_folders
+						
+						for user in users
+							userDir = result.host_computer.File("/home/" + user.name)
+							if userDir.has_permission("w") then
+								access = user.name
+								break
+							end if
+						end for
+					end if
+					
+					resultMap["access"] = access
+
+					sort = port + resultMap["type"] + access
+					
+					resultMap["sort"] = sort
+
+					vulns.push(resultMap)					
+				end if
+				
+				if typeof(result) == "computer" then
+					resultMap = {"port":port, "type":"computer", "mem":mem, "value":value}
+					
+					access = "guest"
+				
+					if result.File("/root").has_permission("w") then
+						access = "root"
+					else
+						home = result.File("/home")
+						
+						users = home.get_folders
+						
+						for user in users
+							userDir = result.File("/home/" + user.name)
+							if userDir.has_permission("w") then
+								access = user.name
+								break
+							end if
+						end for
+					end if
+					
+					resultMap["access"] = access + "@" + result.local_ip
+					
+					sort = port + resultMap["type"] + access
+					
+					resultMap["sort"] = sort
+					
+					vulns.push(resultMap)	
+				end if				
+			end for			
+		end for		
+	end for
+
+	return vulns
+end function
+
+
+getLocalVulns = function(ip, port, router, mem, value, targetLocalAddress = null)
+	if not ip or not port or not router or not mem or not value then return "Invalid Argument(s)"
+	if not is_valid_ip(ip) then return "Invalid address."
+	if targetLocalAddress and not is_valid_ip(targetLocalAddress) then return "Invalid targetLocalAddress"
+	
+	if router != "true" then router = null
+
+	vulns = [] // List<Map>
+	
+	kLib = metaxploit.net_use(ip, port).dump_lib
+	
+	routerShell = kLib.overflow(mem, value)
+	
+	get_shell.scp("/lib/metaxploit.so", "/home/guest", routerShell)
+	get_shell.scp("/root/rlib", "/home/guest", routerShell)
+	
+	libDir = routerShell.host_computer.File("/lib")
+	
+	libs = libDir.get_files
+	
+	for lib in libs
+		routerShell.launch("/home/guest/rlib", lib.path)
+		
+		rLib = get_custom_object.lib
+		
+		memory = metaxploit.scan(rLib)
+		
+		for mem in memories
+			address = metaxploit.scan_address(metaLib, mem).split("Unsafe check:")[1:]
+			
+			for add in address
+				value = add[add.indexOf("<b>")+3:add.indexOf("</b>")]
+				
+				if router and targetLocalAddress then
+					result = metaLib.overflow(mem, value, targetLocalAddress)
+				else
+					result = metaLib.overflow(mem, value)
+				end if
+				
+				if result == null or typeof(result) == "string" then continue
+								
+				if typeof(result) == "file" then
+					resultMap = {"type":"file", "lib":rLib.lib_name, "path":result.path, "mem":mem, "value":value}
+					
+					if result.is_folder then
+						resultMap["type"] = "folder"
+					else if result.is_binary then
+						resultMap["type"] = "binary"
+					end if
+				
+					sort = rLib.lib_name + resultMap["type"] + result.path
+					
+					resultMap["sort"] = sort
+				
+					vulns.push(resultMap)
+				end if
+			
+				if typeof(result) == "number" then
+					if not router then
+						resultMap = {"type":"password", "lib":rLib.lib_name, "mem":mem, "value":value}
+					else
+						resultMap = {"type":"firewall", "lib":rLib.lib_name, "mem":mem, "value":value}
+					end if
+
+					sort = rLib.lib_name + resultMap["type"]
+					
+					resultMap["sort"] = sort
+
+					vulns.push(resultMap)
+				end if
+			
+				if typeof(result) == "shell" then
+					resultMap = {"type":"shell", "lib":rLib.lib_name, "mem":mem, "value":value}
+					
+					access = "guest"
+				
+					if result.host_computer.File("/root").has_permission("w") then
+						access = "root"
+					else
+						home = result.host_computer.File("/home")
+
+						users = home.get_folders
+						
+						for user in users
+							userDir = result.host_computer.File("/home/" + user.name)
+							if userDir.has_permission("w") then
+								access = user.name
+								break
+							end if
+						end for
+					end if
+					
+					resultMap["access"] = access
+					
+					sort = rLib.lib_name + resultMap["type"] + access
+					
+					resultMap["sort"] = sort
+					
+					vulns.push(resultMap)					
+				end if
+				
+				if typeof(result) == "computer" then
+					resultMap = {"type":"computer", "lib":rLib.lib_name, "mem":mem, "value":value}
+					
+					access = "guest"
+				
+					if result.File("/root").has_permission("w") then
+						access = "root"
+					else
+						home = result.File("/home")
+						
+						users = home.get_folders
+						
+						for user in users
+							userDir = result.File("/home/" + user.name)
+							if userDir.has_permission("w") then
+								access = user.name
+								break
+							end if
+						end for
+					end if
+					
+					resultMap["access"] = access + "@" + result.local_ip
+					
+					sort = rLib.lib_name + resultMap["type"] + access
+					
+					resultMap["sort"] = sort
+					
+					vulns.push(resultMap)	
+				end if				
+			end for			
+		end for
+	end for	
+
+	return vulns
+end function
+
+
+
+formatList = function(vulns, remote = null)
+	if remote then
+		printable = "Number Port Type Info Memory Value";
+	else
+		printable = "Number Lib Type Info Memory Value";
+	end if
+
+	for vuln in vulns
+		num = vuln["num"]
+		if remote then
+			port = vuln["port"]
+		else
+			lib = vuln["lib"]
+		end if
+		type = vuln["type"]
+		mem = vuln["mem"]
+		value = vuln["value"]
+		info = ""
+		
+		if type == "file" or type == "folder" or type == "binary" then info = vuln["path"]
+		if type == "shell" or type == "computer" then info = vuln["access"]
+		
+		if remote then
+			str = num + ". " + port + " " + type + " " + info + " " + mem + " " + value
+		else
+			str = num + ". " + lib + " " + type + " " + info + " " + mem + " " + value
+		end if
+		
+		printable = printable + char(10) + str		
+	end for
+
+	return format_columns(printable)
+end function
+
+
+getPorts = function(ipAddress, isRouter)  // List<int>
+	if not get_shell.host_computer.is_network_active then exit("No internet access.")
+	isLanIp = is_lan_ip(ipAddress)
+
+	if isLanIp then
+		router = get_router
+	else 
+		router = get_router(ipAddress)
+	end if
+	
+	if router == null then exit("IP address not found.")
+	
+	portObjs = null
+
+	if not isLanIp then
+		portObjs = router.used_ports
+	else
+		portObjs = router.device_ports(ipAddress)
+	end if
+
+	if portObjs == null then exit("IP address not found (no ports).")
+	if typeof(portObjs) == "string" then exit(portObjs)
+      
+	if(portObjs.len == 0) and isLanIp then exit("Scan finished. No open ports.")
+
+	ports = []
+	
+	if isRouter == "true" then
+		ports.push(0)
+	end if
+	
+	for port in portObjs
+		service_info = router.port_info(port)
+		lan_ip = port.get_lan_ip
+		port_status = "open"
+
+		if not port.is_closed or isLanIp then
+			get_custom_object.messages = get_custom_object.messages + "Discovered: " + lan_ip + ":" + port.port_number + " (" + service_info + ") " + char(10)
+			ports.push(port.port_number)
+		end if
+	end for
+
+	if ports.len > 0 then
+		return ports
+	else
+		return "No open ports."
+	end if
+end function
