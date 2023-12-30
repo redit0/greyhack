@@ -131,7 +131,7 @@ end function
 
 
 getLocalVulns = function(ip, port, router, mem, value, targetLocalAddress = null)
-	if not ip or not port or not router or not mem or not value then return "Invalid Argument(s)"
+	if not ip or port == null or not router or not mem or not value then return "Invalid Argument(s)"
 	if not is_valid_ip(ip) then return "Invalid address."
 	if targetLocalAddress and not is_valid_ip(targetLocalAddress) then return "Invalid targetLocalAddress"
 	
@@ -157,16 +157,16 @@ getLocalVulns = function(ip, port, router, mem, value, targetLocalAddress = null
 		
 		memory = metaxploit.scan(rLib)
 		
-		for mem in memories
-			address = metaxploit.scan_address(metaLib, mem).split("Unsafe check:")[1:]
+		for mem in memory
+			address = metaxploit.scan_address(rLib, mem).split("Unsafe check:")[1:]
 			
 			for add in address
 				value = add[add.indexOf("<b>")+3:add.indexOf("</b>")]
 				
 				if router and targetLocalAddress then
-					result = metaLib.overflow(mem, value, targetLocalAddress)
+					result = rLib.overflow(mem, value, targetLocalAddress)
 				else
-					result = metaLib.overflow(mem, value)
+					result = rLib.overflow(mem, value)
 				end if
 				
 				if result == null or typeof(result) == "string" then continue
@@ -303,6 +303,63 @@ formatList = function(vulns, remote = null)
 	return format_columns(printable)
 end function
 
+getShell = function(vulns, ip, router)
+	for vuln in vulns
+		if vuln["type"] == "shell" and vuln["access"] == "root" then
+			port = vuln["port"]
+			
+			net_session = metaxploit.net_use(ip, port)
+			if not net_session then exit("Error: can't connect to net session")
+
+			metaLib = net_session.dump_lib
+
+			result = metaLib.overflow(vuln["mem"], vuln["value"])
+			if typeof(result) != "shell" then exit("Expected shell, got " + typeof(result))
+
+			get_shell.scp("/root/Desktop/system.log", "/var", result)
+
+			result.start_terminal
+		end if
+	end for
+
+	for vuln in vulns
+		if vuln["type"] == "shell" then
+			port = vuln["port"]
+			mem = vuln["mem"]
+			value = vuln["value"]
+			
+			localVulns = getLocalVulns(ip, port, router, mem, value)
+			
+			for lVuln in localVulns
+				if lVuln["type"] == "shell" and lVuln["access"] == "root" then					
+					net_session = metaxploit.net_use(ip, port)
+					if not net_session then exit("Error: can't connect to net session")
+
+					metaLib = net_session.dump_lib
+		
+					rShell = metaLib.overflow(mem, value)
+					
+					rShell.launch("/home/guest/rlib", "/lib/" + lVuln["lib"])
+					
+					rLib = get_custom_object.lib
+					
+					print("lib: " + lVuln["lib"])
+					print("rLib type: " + typeof(rLib))
+					print("mem: " + lVuln["mem"] + " value:  " + value)
+					
+					result = rLib.overflow(lVuln["mem"], lVuln["value"])
+					if typeof(result) != "shell" then exit("Expected shell, got " + typeof(result))
+
+					get_shell.scp("/root/Desktop/system.log", "/var", result)
+
+					result.start_terminal
+				end if
+			end for
+		end if
+	end for
+
+	print("Could not obtain root shell!")
+end function
 
 getPorts = function(ipAddress, isRouter)  // List<int>
 	if not get_shell.host_computer.is_network_active then exit("No internet access.")
