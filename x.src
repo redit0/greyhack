@@ -59,4 +59,13 @@ print("                     x by redit0 v0.0.1                     ")
 print("------------------------------------------------------------")
 print
 print(get_custom_object.messages)
-print(printable)	
+print(printable)
+print
+
+choice = user_input("What would you like to do?\n" +
+"1. Get Shell\n" +
+"\n> ")
+
+if choice == "1" then
+	getShell(remoteVulns, ipAddress, router)
+end if
