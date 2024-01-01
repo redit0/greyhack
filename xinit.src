@@ -16,7 +16,8 @@ lib = user_input("Which library would you like to attack?\n" +
 "3. /lib/kernel_module.so\n" +
 "4. /lib/aptclient.so\n" +
 "5. /lib/crypto.so\n" +
-"6. /lib/metaxploit.so\n" + "> ")
+"6. /lib/metaxploit.so\n" + 
+"7. /lib/libftp.so\n" + "> ")
 
 libChoice = null
 
@@ -26,6 +27,7 @@ if lib == "3" then libChoice = "/lib/kernel_module.so"
 if lib == "4" then libChoice = "/lib/aptclient.so"
 if lib == "5" then libChoice = "/lib/crypto.so"
 if lib == "6" then libChoice = "/lib/metaxploit.so"
+if lib == "7" then libChoice = "/lib/libftp.so"
 
 if not libChoice then exit("Invalid entry.")
 
