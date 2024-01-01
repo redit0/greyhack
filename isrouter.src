@@ -1,0 +1,15 @@
+ip = params[0]
+
+router = get_router(ip)
+
+isRouter = 0
+
+if not is_lan_ip(ip) then isRouter = 1
+
+if router and router.local_ip == ip then isRouter = 1
+
+if isRouter then
+	print("Address is a router")
+else
+	print("Address is NOT a router")
+end if
