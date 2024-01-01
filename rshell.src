@@ -1,0 +1,19 @@
+if params.len != 3 or params[0] == "-h" or params[0] == "--help" then
+	exit("<b>Usage: "+program_path.split("/")[-1]+" [lib] [memory] [value]</b>")
+end if
+
+metaxploit = include_lib(current_path + "/metaxploit.so")
+if not metaxploit then
+	metaxploit = include_lib("/lib/metaxploit.so")
+end if
+if not metaxploit then exit("Error: Missing metaxploit")
+
+metaLib.load(params[0])
+if not metaLib then exit ("Can't find " + lib)
+
+result = metaLib.overflow(params[1], params[2])
+
+if not result then exit("Overflow failed with mem: " + params[1] + " and value: " + params[2])
+if typeof(result) != "shell" then exit("Expected shell, got " + typeof(result))
+
+result.start_terminal
