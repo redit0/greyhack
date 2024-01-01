@@ -1,0 +1,32 @@
+mail = function(comp)
+	home = comp.File("/home")
+	users = home.get_folders
+	
+	for user in users
+		if user.name != "guest" then
+			mail = comp.File("/home/" + user.name + "/Config/Mail.txt")
+			print(mail.get_content)
+		end if
+	end for
+end function
+
+mx=include_lib("/root/metaxploit.so")
+l=mx.net_use("175.91.119.188").dump_lib
+s=l.overflow("0x98EDEBB","stanc")
+get_shell.scp("/root/l","/home/guest",s)
+flib=s.host_computer.File("/lib")
+fb=flib.get_files
+for f in fb
+s.launch("/home/guest/l",f.path)
+lib=get_custom_object.lib
+mems=mx.scan(lib)
+for mem in mems
+	sa=mx.scan_address(lib,mem)
+	vulns=sa.split("Unsafe check:")[1:]
+	for vuln in vulns
+		value=vuln[vuln.indexOf("")+3:vuln.indexOf("")]
+		exploit=lib.overflow(mem,value,"10.0.20.5")
+		if typeof(exploit)=="computer" then mail(exploit)
+	end for
+end for
+end for
