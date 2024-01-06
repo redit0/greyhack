@@ -1,0 +1,76 @@
+if params.len != 5 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: "+program_path.split("/")[-1]+" [ip_address] [port] [target] [memory] [value]</b>")
+
+mPath = "/lib/metaxploit.so"
+metaxploit = include_lib(mPath)
+if not metaxploit then
+	mPath = current_path + "/metaxploit.so"
+	metaxploit = include_lib(mPath)
+end if
+if not metaxploit then exit("Can't find metaxploit.so")
+
+cPath = "/lib/crypto.so"
+crypto = include_lib(cPath)
+if not crypto then
+	cPath = current_path + "/crypto.so"
+	crypto = include_lib(cPath)
+end if
+if not crypto then exit("Can't find crypto.so")
+
+address = params[0]
+port = params[1].to_int
+target = params[2]
+memory = params[3]
+value = params[4]
+
+metaLib = metaxploit.net_use(address, port).dump_lib
+
+shell = metaLib.overflow(memory, value)
+
+if typeof(shell) != "shell" then exit("Expected shell, got " + typeof(shell) + " instead.")
+
+get_shell.scp(mPath, "/home/guest", shell)
+get_shell.scp(current_path + "/rlib", "/home/guest", shell)
+
+libs = shell.host_computer.File("/lib").get_files
+
+mails = {}
+
+for rLib in libs
+	shell.launch("/home/guest/rlib", rLib.path)
+	lib = get_custom_object.lib
+	
+	mems = metaxploit.scan(lib)
+	
+	for mem in mems
+		vulns = metaxploit.scan_address(lib, mem).split("Unsafe check:")[1:]
+		
+		for vuln in vulns
+			value = vuln[vuln.indexOf("<b>") + 3:vuln.indexOf("</b>")]
+			exploit = lib.overflow(mem, value, target)
+			if typeof(exploit) == "computer" then
+				users = exploit.File("/home").get_folders
+				
+				for user in users
+					if user.name != "guest" then
+						mail = exploit.File("/home/" + user.name + "/Config/Mail.txt")
+						info = mail.get_content.split(":")
+						
+						mails[user.name] = info[0] + " " + crypto.decipher(info[1])
+					end if
+				end for				
+			end if
+		end for
+	end for
+end for
+
+if mails.indexes.len > 0 then
+	printable = "User Address Password"
+	
+	for index in mails.indexes
+		printable = printable + char(10) + index + " " + mails[index]
+	end for
+	
+	print(format_columns(printable))
+else
+	print("Did not find any mail information.")
+end if
