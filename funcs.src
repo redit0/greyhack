@@ -1,7 +1,7 @@
 getRemoteVulns = function(ip, ports, targetLocalAddress = null)
-	if not ip or not ports then return "Invalid Argument(s)"
-	if not is_valid_ip(ip) then return "Invalid address."
-	if targetLocalAddress and not is_valid_ip(targetLocalAddress) then return "Invalid targetLocalAddress"
+	if not ip or not ports then exit("Invalid Argument(s)")
+	if not is_valid_ip(ip) then exit("Invalid address.")
+	if targetLocalAddress and not is_valid_ip(targetLocalAddress) then exit("Invalid targetLocalAddress")
 	
 	router = checkRouter(ip)
 
@@ -92,7 +92,7 @@ getRemoteVulns = function(ip, ports, targetLocalAddress = null)
 					
 					resultMap["sort"] = sort
 
-					vulns.push(resultMap)					
+					vulns.push(resultMap)	
 				end if
 				
 				if typeof(result) == "computer" then
@@ -379,9 +379,34 @@ getShell = function(vulns, ip)
 	metaLib = metaxploit.net_use(ip, oPort).dump_lib
 	
 	result = metaLib.overflow(oMem, oValue)
+	
+	passwd = 0
+	passwords = {}
+	
 	if typeof(result) != "shell" then exit("Expected shell, got " + typeof(result))
 	
 	if theChoice["access"] == "root" then
+		file = result.host_computer.File("/etc/passwd")
+		
+		passwords = decryptPasswords(file)
+		
+		clear_screen
+							
+		print("Got root shell!")
+		print
+		if passwords.indexes.len > 0 then
+			print("Credentials:")
+	
+			printable = "Username Password"
+	
+			for index in passwords.indexes
+				printable = printable + char(10) + index + " " + passwords[index]
+			end for
+
+			print(format_columns(printable))
+			print
+		end if
+		
 		get_shell.scp("/root/Desktop/system.log", "/var", result)
 
 		result.start_terminal
@@ -406,19 +431,69 @@ getShell = function(vulns, ip)
 					value = rVuln[rVuln.indexOf("<b>")+3:rVuln.indexOf("</b>")]
 					
 					exploit = lib.overflow(mem, value)
+					
+					if typeof(exploit) == "file" and exploit.name == "passwd" and exploit.has_permission("r") then
+						passwords = decryptPasswords(exploit)
+					end if
+				
+					if typeof(exploit) == "computer" and exploit.File("/etc/passwd").has_permission("r") then
+						file = exploit.File("/etc/passwd")
+						
+						passwords = decryptPasswords(file)
+					end if
+					
+					if typeof(exploit) == "shell" and exploit.host_computer.File("/etc/passwd").has_permission("r") then
+						file = exploit.host_computer.File("/etc/passwd")
+						
+						passwords = decryptPasswords(file)
+					end if
+					
 					if typeof(exploit) == "shell" then
 						if exploit.host_computer.File("/root").has_permission("w") then
+							clear_screen
+							
+							print("Got root shell!")
+							print
+							if passwords.indexes.len > 0 then
+								print("Credentials:")
+	
+								printable = "Username Password"
+	
+								for index in passwords.indexes
+									printable = printable + char(10) + index + " " + passwords[index]
+								end for
+
+								print(format_columns(printable))
+								print
+							end if
 							get_shell.scp("/root/Desktop/system.log", "/var", exploit)
 							
-							exploit.start_terminal
+							exploit.start_terminal							
 						end if
 					end if
 				end for
 			end for
 		end for
-	end if
+	end if	
 
+	//clear_screen
+	
 	print("Could not obtain root shell!")
+	
+	if passwords.indexes.len > 0 then
+		print
+		print("Credentials:")
+		
+		printable = "Username Password"
+		
+		for index in passwords.indexes
+			printable = printable + char(10) + index + " " + passwords[index]
+		end for
+	
+		print(format_columns(printable))
+	end if
+	print
+	result.start_terminal
 end function
 
 getPorts = function(ipAddress)  // List<int>
@@ -451,6 +526,7 @@ getPorts = function(ipAddress)  // List<int>
 	ports = []
 	
 	if isRouter then
+		get_custom_object.messages = get_custom_object.messages + "Discovered: " + ipAddress + ":0" + " (kernel_router) " + char(10)
 		ports.push({"ip":ipAddress, "port":0})
 	end if
 	
@@ -476,6 +552,7 @@ getInfo = function(remoteVulns, ip, target)
 			rShell = metaLib.overflow(rVuln["mem"], rVuln["value"])
 			if typeof(rShell) != "shell" then exit("Expected shell, got " + typeof(rShell))
 			
+			get_shell.scp("/lib/metaxploit.so", "/home/guest", rShell)
 			get_shell.scp("/root/rlib", "/home/guest", rShell)
 			
 			rLibs = rShell.host_computer.File("/lib").get_files
@@ -528,7 +605,6 @@ getInfo = function(remoteVulns, ip, target)
 						
 						for user in users
 							if user.name != "guest" then
-								
 								if info.hasIndex(user.name) and info[user.name].hasIndex("password") and info[user.name].hasIndex("bank") and info[user.name].hasIndex("mail") then continue
 								
 								mail = result.File("/home/" + user.name + "/Config/Mail.txt").get_content
@@ -576,6 +652,27 @@ getInfo = function(remoteVulns, ip, target)
 		break
 		end if
 	end for
+
+	exit("No vulnerability to exploit on the router!")
+end function
+
+decryptPasswords = function(file)
+	credentials = file.get_content.split("\n")
+	
+	results = {}
+	
+	for credential in credentials
+		temp = credential.split(":")
+		
+		if temp.len == 2 then
+			user = temp[0]
+			password = crypto.decipher(temp[1])
+			
+			results[user] = password
+		end if		
+	end for
+
+	return results
 end function
 
 checkRouter = function(ip)
@@ -589,10 +686,3 @@ checkRouter = function(ip)
 
 	return isRouter
 end function
-
-
-
-
-
-
-
