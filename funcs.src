@@ -1,12 +1,20 @@
 getRemoteVulns = function(ip, ports, targetLocalAddress = null)
-	if not ip or not ports then exit("Invalid Argument(s)")
-	if not is_valid_ip(ip) then exit("Invalid address.")
-	if targetLocalAddress and not is_valid_ip(targetLocalAddress) then exit("Invalid targetLocalAddress")
-	
-	router = checkRouter(ip)
+	if not ip or not ports then
+		exit("Invalid Argument(s)")
+	end if
 
-	vulns = [] // List<Map>
-	
+	if not is_valid_ip(ip) then
+		exit("Invalid address.")
+	end if
+
+	if targetLocalAddress and not is_valid_ip(targetLocalAddress) then
+		exit("Invalid targetLocalAddress")
+	end if
+
+	router = checkRouter(ip)
+	vulns = []
+	// List<Map>
+
 	for mPort in ports
 		port = mPort["port"]
 		local = mPort["ip"]
@@ -16,116 +24,108 @@ getRemoteVulns = function(ip, ports, targetLocalAddress = null)
 			print("Could not establish net_session!")
 			continue
 		end if
-		
+
 		metaLib = net_session.dump_lib
-		
 		memory = metaxploit.scan(metaLib)
-		
+
 		for mem in memory
-			address = metaxploit.scan_address(metaLib, mem).split("Unsafe check:")[1:]
-			
+			address = metaxploit.scan_address(metaLib, mem).split("Unsafe check:")[1 : ]
+
 			for add in address
-				value = add[add.indexOf("<b>")+3:add.indexOf("</b>")]
-				
+				value = add[add.indexOf("<b>") + 3 : add.indexOf("</b>")]
+
 				if router and targetLocalAddress then
 					result = metaLib.overflow(mem, value, targetLocalAddress)
 				else
 					result = metaLib.overflow(mem, value)
 				end if
-				
-				if result == null or typeof(result) == "string" then continue
-				
+
+				if result == null or typeof(result) == "string" then
+					continue
+				end if
+
 				if typeof(result) == "file" then
-					resultMap = {"port":port, "ip":local, "type":"file", "path":result.path, "mem":mem, "value":value}
-					
+					resultMap = {"port": port, "ip": local, "type": "file", "path": result.path, "mem": mem, "value": value}
+
 					if result.is_folder then
 						resultMap["type"] = "folder"
 					else if result.is_binary then
 						resultMap["type"] = "binary"
 					end if
-					
+
 					sort = port + resultMap["type"] + result.path
-					
 					resultMap["sort"] = sort
-					
 					vulns.push(resultMap)
 				end if
-			
+
 				if typeof(result) == "number" then
 					if router and port == 0 then
-						resultMap = {"port":port, "ip":local, "type":"firewall", "mem":mem, "value":value}
+						resultMap = {"port": port, "ip": local, "type": "firewall", "mem": mem, "value": value}
 					else
-						resultMap = {"port":port, "ip":local, "type":"password", "mem":mem, "value":value}
+						resultMap = {"port": port, "ip": local, "type": "password", "mem": mem, "value": value}
 					end if
-				
+
 					sort = port + resultMap["type"]
-					
 					resultMap["sort"] = sort
-					
 					vulns.push(resultMap)
 				end if
-			
+
 				if typeof(result) == "shell" then
-					resultMap = {"port":port, "ip":local, "type":"shell", "mem":mem, "value":value}
-					
+					resultMap = {"port": port, "ip": local, "type": "shell", "mem": mem, "value": value}
 					access = "guest"
-				
+
 					if result.host_computer.File("/root").has_permission("w") then
 						access = "root"
 					else
 						home = result.host_computer.File("/home")
-
 						users = home.get_folders
-						
+
 						for user in users
 							userDir = result.host_computer.File("/home/" + user.name)
+
 							if userDir.has_permission("w") then
 								access = user.name
 								break
 							end if
 						end for
+
 					end if
-					
+
 					resultMap["access"] = access
-
 					sort = port + resultMap["type"] + access
-					
 					resultMap["sort"] = sort
-
-					vulns.push(resultMap)	
+					vulns.push(resultMap)
 				end if
-				
+
 				if typeof(result) == "computer" then
-					resultMap = {"port":port, "ip":local, "type":"computer", "mem":mem, "value":value}
-					
+					resultMap = {"port": port, "ip": local, "type": "computer", "mem": mem, "value": value}
 					access = "guest"
-				
+
 					if result.File("/root").has_permission("w") then
 						access = "root"
 					else
 						home = result.File("/home")
-						
 						users = home.get_folders
-						
+
 						for user in users
 							userDir = result.File("/home/" + user.name)
+
 							if userDir.has_permission("w") then
 								access = user.name
 								break
 							end if
 						end for
+
 					end if
-					
+
 					resultMap["access"] = access + "@" + result.local_ip
-					
 					sort = port + resultMap["type"] + access
-					
 					resultMap["sort"] = sort
-					
-					vulns.push(resultMap)	
-				end if				
-			end for			
-		end for		
+					vulns.push(resultMap)
+				end if
+			end for
+		end for
+
 	end for
 
 	return vulns
@@ -135,200 +135,200 @@ listLocalVulns = function(remoteVulns, ip)
 	for vuln in remoteVulns
 		if vuln["type"] == "shell" then
 			localVulns = getLocalVulns(ip, vuln["port"], vuln["mem"], vuln["value"])
-			
 			return localVulns
 		end if
+
 	end for
+
 end function
 
 getLocalVulns = function(ip, port, mem, value, targetLocalAddress = null)
-	if not ip or port == null or not mem or not value then return "Invalid Argument(s)"
-	if not is_valid_ip(ip) then return "Invalid address."
-	if targetLocalAddress and not is_valid_ip(targetLocalAddress) then return "Invalid targetLocalAddress"
-	
-	router = checkRouter(ip)
+	if not ip or port == null or not mem or not value then
+		return "Invalid Argument(s)"
+	end if
 
-	vulns = [] // List<Map>
-	
+	if not is_valid_ip(ip) then
+		return "Invalid address."
+	end if
+
+	if targetLocalAddress and not is_valid_ip(targetLocalAddress) then
+		return "Invalid targetLocalAddress"
+	end if
+
+	router = checkRouter(ip)
+	vulns = []
+	// List<Map>
 	kLib = metaxploit.net_use(ip, port).dump_lib
-	
 	routerShell = kLib.overflow(mem, value)
-	
 	get_shell.scp("/lib/metaxploit.so", "/home/guest", routerShell)
 	get_shell.scp("/root/rlib", "/home/guest", routerShell)
-	
 	libDir = routerShell.host_computer.File("/lib")
-	
 	libs = libDir.get_files
-	
+
 	for lib in libs
 		routerShell.launch("/home/guest/rlib", lib.path)
-		
 		rLib = get_custom_object.lib
-		
 		memory = metaxploit.scan(rLib)
-		
+
 		for mem in memory
-			address = metaxploit.scan_address(rLib, mem).split("Unsafe check:")[1:]
-			
+			address = metaxploit.scan_address(rLib, mem).split("Unsafe check:")[1 : ]
+
 			for add in address
-				value = add[add.indexOf("<b>")+3:add.indexOf("</b>")]
-				
+				value = add[add.indexOf("<b>") + 3 : add.indexOf("</b>")]
+
 				if router and targetLocalAddress then
 					result = rLib.overflow(mem, value, targetLocalAddress)
 				else
 					result = rLib.overflow(mem, value)
 				end if
-				
-				if result == null or typeof(result) == "string" then continue
-								
+
+				if result == null or typeof(result) == "string" then
+					continue
+				end if
+
 				if typeof(result) == "file" then
-					resultMap = {"type":"file", "lib":rLib.lib_name, "path":result.path, "mem":mem, "value":value}
-					
+					resultMap = {"type": "file", "lib": rLib.lib_name, "path": result.path, "mem": mem, "value": value}
+
 					if result.is_folder then
 						resultMap["type"] = "folder"
 					else if result.is_binary then
 						resultMap["type"] = "binary"
 					end if
-				
+
 					sort = rLib.lib_name + resultMap["type"] + result.path
-					
 					resultMap["sort"] = sort
-				
 					vulns.push(resultMap)
 				end if
-			
+
 				if typeof(result) == "number" then
 					if not router then
-						resultMap = {"type":"password", "lib":rLib.lib_name, "mem":mem, "value":value}
+						resultMap = {"type": "password", "lib": rLib.lib_name, "mem": mem, "value": value}
 					else
-						resultMap = {"type":"firewall", "lib":rLib.lib_name, "mem":mem, "value":value}
+						resultMap = {"type": "firewall", "lib": rLib.lib_name, "mem": mem, "value": value}
 					end if
 
 					sort = rLib.lib_name + resultMap["type"]
-					
 					resultMap["sort"] = sort
-
 					vulns.push(resultMap)
 				end if
-			
+
 				if typeof(result) == "shell" then
-					resultMap = {"type":"shell", "lib":rLib.lib_name, "mem":mem, "value":value}
-					
+					resultMap = {"type": "shell", "lib": rLib.lib_name, "mem": mem, "value": value}
 					access = "guest"
-				
+
 					if result.host_computer.File("/root").has_permission("w") then
 						access = "root"
 					else
 						home = result.host_computer.File("/home")
-
 						users = home.get_folders
-						
+
 						for user in users
 							userDir = result.host_computer.File("/home/" + user.name)
+
 							if userDir.has_permission("w") then
 								access = user.name
 								break
 							end if
 						end for
+
 					end if
-					
+
 					resultMap["access"] = access
-					
 					sort = rLib.lib_name + resultMap["type"] + access
-					
 					resultMap["sort"] = sort
-					
-					vulns.push(resultMap)					
+					vulns.push(resultMap)
 				end if
-				
+
 				if typeof(result) == "computer" then
-					resultMap = {"type":"computer", "lib":rLib.lib_name, "mem":mem, "value":value}
-					
+					resultMap = {"type": "computer", "lib": rLib.lib_name, "mem": mem, "value": value}
 					access = "guest"
-				
+
 					if result.File("/root").has_permission("w") then
 						access = "root"
 					else
 						home = result.File("/home")
-						
 						users = home.get_folders
-						
+
 						for user in users
 							userDir = result.File("/home/" + user.name)
+
 							if userDir.has_permission("w") then
 								access = user.name
 								break
 							end if
 						end for
+
 					end if
-					
+
 					resultMap["access"] = access + "@" + result.local_ip
-					
 					sort = rLib.lib_name + resultMap["type"] + access
-					
 					resultMap["sort"] = sort
-					
-					vulns.push(resultMap)	
-				end if				
-			end for			
+					vulns.push(resultMap)
+				end if
+			end for
 		end for
-	end for	
+
+	end for
 
 	return vulns
 end function
 
-
-
 formatList = function(vulns, remote = null)
 	if remote then
-		printable = "Number Port IP Type Info Memory Value";
+		printable = "Number Port IP Type Info Memory Value"
 	else
-		printable = "Number Lib Type Info Memory Value";
+		printable = "Number Lib Type Info Memory Value"
 	end if
 
 	for vuln in vulns
 		num = vuln["num"]
+
 		if remote then
 			port = vuln["port"]
 			ip = vuln["ip"]
 		else
 			lib = vuln["lib"]
 		end if
+
 		type = vuln["type"]
 		mem = vuln["mem"]
 		value = vuln["value"]
 		info = ""
-		
-		if type == "file" or type == "folder" or type == "binary" then info = vuln["path"]
-		if type == "shell" or type == "computer" then info = vuln["access"]
-		
+
+		if type == "file" or type == "folder" or type == "binary" then
+			info = vuln["path"]
+		end if
+
+		if type == "shell" or type == "computer" then
+			info = vuln["access"]
+		end if
+
 		if remote then
 			str = num + ". " + port + " " + ip + " " + type + " " + info + " " + mem + " " + value
 		else
 			str = num + ". " + lib + " " + type + " " + info + " " + mem + " " + value
 		end if
-		
-		printable = printable + char(10) + str		
+
+		printable = printable + char(10) + str
 	end for
 
 	return format_columns(printable)
+
 end function
 
 getShell = function(vulns, ip)
 	router = checkRouter(ip)
-	
 	options = {}
-	
+
 	for vuln in vulns
 		if vuln["type"] == "shell" and vuln["access"] == "root" then
 			local = vuln["ip"]
 			port = vuln["port"]
 			mem = vuln["mem"]
 			value = vuln["value"]
-			
-			options[local] = {"ip":local, "port":port, "mem":mem, "value":value, "access":"root"}
-		end if		
+			options[local] = {"ip": local, "port": port, "mem": mem, "value": value, "access": "root"}
+		end if
+
 	end for
 
 	for vuln in vulns
@@ -338,178 +338,183 @@ getShell = function(vulns, ip)
 			mem = vuln["mem"]
 			value = vuln["value"]
 			access = vuln["access"]
-			
+
 			if not options.hasIndex(local) then
-				options[local] = {"ip":local, "port":port, "mem":mem, "value":value, "access":access}
+				options[local] = {"ip": local, "port": port, "mem": mem, "value": value, "access": access}
 			end if
-		end if		
+
+		end if
+
 	end for
-	
+
 	count = 0
 
 	for index in options.indexes
 		count = count + 1
 		options[index]["num"] = count
-	end for	
-	
+	end for
+
 	prompt = "Which computer would you like a shell on?"
-	
+
 	for index in options.indexes
 		prompt = prompt + char(10) + options[index]["num"] + ". " + options[index]["ip"] + ":" + options[index]["port"]
 	end for
 
 	prompt = prompt + char(10) + "> "
-	
 	choice = user_input(prompt)
-	
 	theChoice = null
-	
+
 	for index in options.indexes
 		if options[index]["num"] == choice.to_int then
 			theChoice = options[index]
 		end if
+
 	end for
 
-	if not theChoice then exit("Invalid user input.")
+	if not theChoice then
+		exit("Invalid user input.")
+	end if
+
 	oIP = theChoice["ip"]
 	oPort = theChoice["port"]
 	oMem = theChoice["mem"]
 	oValue = theChoice["value"]
-	
 	metaLib = metaxploit.net_use(ip, oPort).dump_lib
-	
 	result = metaLib.overflow(oMem, oValue)
-	
 	passwd = 0
 	passwords = {}
-	
-	if typeof(result) != "shell" then exit("Expected shell, got " + typeof(result))
-	
+
+	if typeof(result) != "shell" then
+		exit("Expected shell, got " + typeof(result))
+	end if
+
 	if theChoice["access"] == "root" then
 		file = result.host_computer.File("/etc/passwd")
-		
 		passwords = decryptPasswords(file)
-		
 		clear_screen
-							
 		print("Got root shell!")
 		print
+
 		if passwords.indexes.len > 0 then
 			print("Credentials:")
-	
 			printable = "Username Password"
-	
+
 			for index in passwords.indexes
 				printable = printable + char(10) + index + " " + passwords[index]
 			end for
 
 			print(format_columns(printable))
+
 			print
 		end if
-		
-		get_shell.scp("/root/Desktop/system.log", "/var", result)
 
+		get_shell.scp("/root/Desktop/system.log", "/var", result)
 		result.start_terminal
 	else
 		get_shell.scp("/lib/metaxploit.so", "/home/guest", result)
 		get_shell.scp("/root/rlib", "/home/guest", result)
-		
 		rLibs = result.host_computer.File("/lib").get_files
-		
+
 		for rLib in rLibs
 			print(rLib.path)
 			result.launch("/home/guest/rlib", rLib.path)
-			
 			lib = get_custom_object.lib
-			
 			mems = metaxploit.scan(lib)
-			
+
 			for mem in mems
-				rVulns = metaxploit.scan_address(lib, mem).split("Unsafe check:")[1:]
-				
+				rVulns = metaxploit.scan_address(lib, mem).split("Unsafe check:")[1 : ]
+
 				for rVuln in rVulns
-					value = rVuln[rVuln.indexOf("<b>")+3:rVuln.indexOf("</b>")]
-					
+					value = rVuln[rVuln.indexOf("<b>") + 3 : rVuln.indexOf("</b>")]
 					exploit = lib.overflow(mem, value)
-					
+
 					if typeof(exploit) == "file" and exploit.name == "passwd" and exploit.has_permission("r") then
 						passwords = decryptPasswords(exploit)
 					end if
-				
+
 					if typeof(exploit) == "computer" and exploit.File("/etc/passwd").has_permission("r") then
 						file = exploit.File("/etc/passwd")
-						
 						passwords = decryptPasswords(file)
 					end if
-					
+
 					if typeof(exploit) == "shell" and exploit.host_computer.File("/etc/passwd").has_permission("r") then
 						file = exploit.host_computer.File("/etc/passwd")
-						
 						passwords = decryptPasswords(file)
 					end if
-					
+
 					if typeof(exploit) == "shell" then
 						if exploit.host_computer.File("/root").has_permission("w") then
 							clear_screen
-							
 							print("Got root shell!")
 							print
+
 							if passwords.indexes.len > 0 then
 								print("Credentials:")
-	
 								printable = "Username Password"
-	
+
 								for index in passwords.indexes
 									printable = printable + char(10) + index + " " + passwords[index]
 								end for
 
 								print(format_columns(printable))
+
 								print
 							end if
+
 							get_shell.scp("/root/Desktop/system.log", "/var", exploit)
-							
-							exploit.start_terminal							
+							exploit.start_terminal
 						end if
+
 					end if
+
 				end for
 			end for
+
 		end for
-	end if	
+
+	end if
 
 	//clear_screen
-	
 	print("Could not obtain root shell!")
-	
+
 	if passwords.indexes.len > 0 then
 		print
 		print("Credentials:")
-		
 		printable = "Username Password"
-		
+
 		for index in passwords.indexes
 			printable = printable + char(10) + index + " " + passwords[index]
 		end for
-	
+
 		print(format_columns(printable))
+
 	end if
+
 	print
 	result.start_terminal
 end function
 
-getPorts = function(ipAddress)  // List<int>
-	if not get_shell.host_computer.is_network_active then exit("No internet access.")
+getPorts = function(ipAddress)
+	// List<int>
+
+	if not get_shell.host_computer.is_network_active then
+		exit("No internet access.")
+	end if
+
 	isLanIp = is_lan_ip(ipAddress)
 
 	if isLanIp then
 		router = get_router
-	else 
+	else
 		router = get_router(ipAddress)
 	end if
-	
+
 	isRouter = checkRouter(ipAddress)
-	
-	if router == null then exit("IP address not found.")
-	
+
+	if router == null then
+		exit("IP address not found.")
+	end if
+
 	portObjs = null
 
 	if not isLanIp then
@@ -518,18 +523,25 @@ getPorts = function(ipAddress)  // List<int>
 		portObjs = router.device_ports(ipAddress)
 	end if
 
-	if portObjs == null then exit("IP address not found (no ports).")
-	if typeof(portObjs) == "string" then exit(portObjs)
-      
-	if(portObjs.len == 0) and isLanIp then exit("Scan finished. No open ports.")
+	if portObjs == null then
+		exit("IP address not found (no ports).")
+	end if
+
+	if typeof(portObjs) == "string" then
+		exit(portObjs)
+	end if
+
+	if (portObjs.len == 0) and isLanIp then
+		exit("Scan finished. No open ports.")
+	end if
 
 	ports = []
-	
+
 	if isRouter then
 		get_custom_object.messages = get_custom_object.messages + "Discovered: " + ipAddress + ":0" + " (kernel_router) " + char(10)
-		ports.push({"ip":ipAddress, "port":0})
+		ports.push({"ip": ipAddress, "port": 0})
 	end if
-	
+
 	for port in portObjs
 		service_info = router.port_info(port)
 		lan_ip = port.get_lan_ip
@@ -537,8 +549,9 @@ getPorts = function(ipAddress)  // List<int>
 
 		if not port.is_closed or isLanIp then
 			get_custom_object.messages = get_custom_object.messages + "Discovered: " + lan_ip + ":" + port.port_number + " (" + service_info + ") " + char(10)
-			ports.push({"ip":lan_ip, "port":port.port_number})
+			ports.push({"ip": lan_ip, "port": port.port_number})
 		end if
+
 	end for
 
 	return ports
@@ -546,130 +559,137 @@ end function
 
 getInfo = function(remoteVulns, ip, target)
 	for rVuln in remoteVulns
-		if rVuln["type"] == "shell" and rVuln["port"] == 0 then			
+		if rVuln["type"] == "shell" and rVuln["port"] == 0 then
 			metaLib = metaxploit.net_use(ip, 0).dump_lib
-
 			rShell = metaLib.overflow(rVuln["mem"], rVuln["value"])
-			if typeof(rShell) != "shell" then exit("Expected shell, got " + typeof(rShell))
-			
+
+			if typeof(rShell) != "shell" then
+				exit("Expected shell, got " + typeof(rShell))
+			end if
+
 			get_shell.scp("/lib/metaxploit.so", "/home/guest", rShell)
 			get_shell.scp("/root/rlib", "/home/guest", rShell)
-			
 			rLibs = rShell.host_computer.File("/lib").get_files
-			
 			info = {}
 			gotPasswd = null
-			
+
 			for rLib in rLibs
 				rShell.launch("/home/guest/rlib", rLib.path)
-				
 				lib = get_custom_object.lib
-				
 				mems = metaxploit.scan(lib)
-				
+
 				for mem in mems
-					vulns = metaxploit.scan_address(lib, mem).split("Unsafe check:")[1:]
-					
+					vulns = metaxploit.scan_address(lib, mem).split("Unsafe check:")[1 : ]
+
 					for vuln in vulns
-						value = vuln[vuln.indexOf("<b>")+3:vuln.indexOf("</b>")]
-						
+						value = vuln[vuln.indexOf("<b>") + 3 : vuln.indexOf("</b>")]
 						result = lib.overflow(mem, value, target)
-						if typeof(result) != "computer" then continue
-						
+
+						if typeof(result) != "computer" then
+							continue
+						end if
+
 						passwd = result.File("/etc/passwd")
+
 						if passwd and passwd.has_permission("r") and not gotPasswd then
 							pwdFile = passwd.get_content
-							
 							pwds = pwdFile.split("\n")
-							
 							gotPasswd = true
-							
+
 							for pwd in pwds
 								temp = pwd.split(":")
+
 								if temp.len == 2 then
 									user = temp[0]
 									encPass = temp[1]
-								
 									pass = crypto.decipher(encPass)
-								
+
 									if not info.hasIndex(user) then
 										info[user] = {"password": user + " " + pass}
 									else
 										info[user]["password"] = user + " " + pass
 									end if
+
 								end if
-							end for							
+							end for
+
 						end if
-						
+
 						users = result.File("/home").get_folders
-						
+
 						for user in users
 							if user.name != "guest" then
-								if info.hasIndex(user.name) and info[user.name].hasIndex("password") and info[user.name].hasIndex("bank") and info[user.name].hasIndex("mail") then continue
-								
+								if info.hasIndex(user.name) and info[user.name].hasIndex("password") and info[user.name].hasIndex("bank") and info[user.name].hasIndex("mail") then
+									continue
+								end if
+
 								mail = result.File("/home/" + user.name + "/Config/Mail.txt").get_content
+
 								if mail then
 									mailInfo = mail.split(":")
-									
+
 									if mailInfo.len == 2 then
 										mailAddress = mailInfo[0]
 										encMailPass = mailInfo[1]
-									
 										mailPass = crypto.decipher(encMailPass)
-									
+
 										if not info.hasIndex(user.name) then
-											info[user.name] = { "mail" : mailAddress + " " + mailPass }
+											info[user.name] = {"mail": mailAddress + " " + mailPass}
 										else
 											info[user.name]["mail"] = mailAddress + " " + mailPass
 										end if
+
 									end if
 								end if
-								
+
 								bank = result.File("/home/" + user.name + "/Config/Bank.txt").get_content
+
 								if bank then
 									bankInfo = bank.split(":")
-									
+
 									if bankInfo.len == 2 then
 										bankName = bankInfo[0]
 										encBankPass = bankInfo[1]
-										
 										bankPass = crypto.decipher(encBankPass)
-										
+
 										if not info.hasIndex(user.name) then
-											info[user.name] = { "bank" : bankName + " " + bankPass }
+											info[user.name] = {"bank": bankName + " " + bankPass}
 										else
 											info[user.name]["bank"] = bankName + " " + bankPass
 										end if
+
 									end if
 								end if
-							end if
-						end for
-					end for
-				end for				
-			end for
-		
-			return info
-		break
-		end if
-	end for
 
+							end if
+
+						end for
+
+					end for
+				end for
+
+			end for
+
+			return info
+			break
+		end if
+
+	end for
 	exit("No vulnerability to exploit on the router!")
 end function
 
 decryptPasswords = function(file)
 	credentials = file.get_content.split("\n")
-	
 	results = {}
-	
+
 	for credential in credentials
 		temp = credential.split(":")
-		
+
 		if temp.len == 2 then
 			user = temp[0]
 			password = crypto.decipher(temp[1])
-			
 			results[user] = password
-		end if		
+		end if
 	end for
 
 	return results
@@ -677,12 +697,15 @@ end function
 
 checkRouter = function(ip)
 	router = get_router(ip)
-
 	isRouter = 0
 
-	if not is_lan_ip(ip) then isRouter = 1
+	if not is_lan_ip(ip) then
+		isRouter = 1
+	end if
 
-	if router and router.local_ip == ip then isRouter = 1
+	if router and router.local_ip == ip then
+		isRouter = 1
+	end if
 
 	return isRouter
 end function

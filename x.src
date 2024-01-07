@@ -1,36 +1,42 @@
 if params.len < 1 or params[0] == "-h" or params[0] == "--help" then
-	exit("<b>Usage: "+program_path.split("/")[-1]+" [ip_address]</b>")
+	exit("<b>Usage: " + program_path.split("/")[-1] + " [ip_address]</b>")
 end if
 
-if not is_valid_ip(params[0]) then exit("Invalid ip address")
-if not get_shell.host_computer.is_network_active then exit("No internet access.")
 
+if not is_valid_ip(params[0]) then
+	exit("Invalid ip address")
+end if
+
+if not get_shell.host_computer.is_network_active then
+	exit("No internet access.")
+end if
 metaxploit = include_lib(current_path + "/metaxploit.so")
+
 if not metaxploit then
 	metaxploit = include_lib("/lib/metaxploit.so")
 end if
-if not metaxploit then exit("Error: Missing metaxploit")
 
+
+if not metaxploit then
+	exit("Error: Missing metaxploit")
+end if
 crypto = include_lib(current_path + "/crypto.so")
+
 if not crypto then
 	crypto = include_lib("/lib/crypto.so")
 end if
-if not crypto then exit("Error: Missing crypto")
 
+
+if not crypto then
+	exit("Error: Missing crypto")
+end if
 get_custom_object.messages = ""
-
 import_code("/root/src/funcs.src")
-
 ipAddress = params[0]
-
 ports = getPorts(ipAddress)
-
 remoteVulns = null
-
 remoteVulns = getRemoteVulns(ipAddress, ports)
-
 remoteVulns.sort("sort")
-
 count = 0
 
 for vuln in remoteVulns
@@ -39,6 +45,7 @@ for vuln in remoteVulns
 end for
 
 printable = formatList(remoteVulns, "true")
+
 clear_screen
 print("------------------------------------------------------------")
 print("                     x by redit0 v0.0.1                     ")
@@ -48,12 +55,7 @@ print(get_custom_object.messages)
 get_custom_object.messages = ""
 print(printable)
 print
-
-choice = user_input("What would you like to do?\n" +
-"1. Get Shell\n" +
-"2. List Local Vulnerabilities\n" +
-"3. Get mail/bank/passwd info from a local IP\n" + 
-"\n> ")
+choice = user_input("What would you like to do?\n" + "1. Get Shell\n" + "2. List Local Vulnerabilities\n" + "3. Get mail/bank/passwd info from a local IP\n" + "\n> ")
 
 if choice == "1" then
 	getShell(remoteVulns, ipAddress)
@@ -61,45 +63,48 @@ end if
 
 if choice == "2" then
 	localVulns = listLocalVulns(remoteVulns, ipAddress)
-	
 	localVulns.sort("sort")
-	
 	count = 0
 
 	for vuln in localVulns
 		count = count + 1
 		vuln["num"] = count
 	end for
-	
+
 	clear_screen
 	print("------------------------------------------------------------")
 	print("                     x by redit0 v0.0.1                     ")
 	print("------------------------------------------------------------")
 	print
 	print(get_custom_object.messages)
-	print formatList(localVulns)
+
+	print(formatList(localVulns))
+
 	print
 end if
 
 if choice == "3" then
 	target = user_input("What is the IP address you would like to target?\n\n> ")
 	info = getInfo(remoteVulns, ipAddress, target)
-	
 	clear_screen
 	print("------------------------------------------------------------")
 	print("                     x by redit0 v0.0.1                     ")
 	print("------------------------------------------------------------")
 	print(get_custom_object.messages)
 	print
-	
+
 	for index in info.indexes
 		print("User: " + index)
 		print
 		fPrint = "Info Username Password"
+
 		for i in info[index].indexes
 			fPrint = fPrint + char(10) + i + ": " + info[index][i]
 		end for
+
 		print(format_columns(fPrint))
+
 		print
 	end for
+
 end if
